@@ -1,0 +1,22 @@
+server:
+  port: ${PORT:8082}
+
+spring:
+  application:
+    name: cinemaabyss-events
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:cinemaabyss-events}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+events:
+  topics:
+    movie: ${MOVIE_EVENTS_TOPIC:movie-events}
+    user: ${USER_EVENTS_TOPIC:user-events}
+    payment: ${PAYMENT_EVENTS_TOPIC:payment-events}

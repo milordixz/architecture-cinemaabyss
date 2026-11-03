@@ -33,16 +33,18 @@ docker compose up --build -d proxy-service
 
 
 ### 2. Kafka
- Вам как архитектуру нужно также проверить гипотезу насколько просто реализовать применение Kafka в данной архитектуре.
+Реализация находится в `src/microservices/events`.
 
-Для этого нужно сделать MVP сервис events, который будет при вызове API создавать и сам же читать сообщения в топике Kafka.
+- `POST /api/events/movie` публикует в `movie-events`.
+- `POST /api/events/user` публикует в `user-events`.
+- `POST /api/events/payment` публикует в `payment-events`.
+- Для каждого топика запущен consumer с группой `cinemaabyss-events`
+- обработанное сообщение записывается в лог.
 
-    - Разработайте сервис на любом языке программирования с consumer'ами и producer'ами.
-    - Реализуйте простой API, при вызове которого будут создаваться события User/Payment/Movie и обрабатываться внутри сервиса с записью в лог
-    - Добавьте в docker-compose новый сервис, kafka там уже есть
-
-Необходимые тесты для проверки этого API вызываются при запуске npm run test:local из папки tests/postman 
-Приложите скриншот тестов и скриншот состояния топиков Kafka из UI http://localhost:8090 
+Результаты:
+- [docs/tests.png]( docs/tests.png).
+- [docs/kafka-topics.png](docs/kafka-topics.png).
+- [docs/kafka-consumers.png](docs/kafka-consumers.png).
 
 # Задание 3
 
