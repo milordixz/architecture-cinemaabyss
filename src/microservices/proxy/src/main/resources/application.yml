@@ -1,0 +1,11 @@
+server:
+  port: ${PORT:8000}
+proxy:
+  monolith-url: ${MONOLITH_URL:http://localhost:8080}
+  movies-service-url: ${MOVIES_SERVICE_URL:http://localhost:8081}
+  events-service-url: ${EVENTS_SERVICE_URL:http://localhost:8082}
+  gradual-migration: ${GRADUAL_MIGRATION:true}
+  movies-migration-percent: ${MOVIES_MIGRATION_PERCENT:0}
+spring:
+  application:
+    name: cinemaabyss-proxy

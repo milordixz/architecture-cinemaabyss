@@ -2,49 +2,34 @@
 
 # Задание 1
 
-1. Спроектируйте to be архитектуру КиноБездны, разделив всю систему на отдельные домены и организовав интеграционное взаимодействие и единую точку вызова сервисов.
-Результат представьте в виде контейнерной диаграммы в нотации С4.
-Добавьте ссылку на файл в этот шаблон
-[ссылка на файл](ссылка)
+Контейнерная диаграмма C4: [docs/to-be-container.puml](docs/to-be-container.puml).
 
 # Задание 2
 
 ### 1. Proxy
-Команда КиноБездны уже выделила сервис метаданных о фильмах movies и вам необходимо реализовать бесшовный переход с применением паттерна Strangler Fig в части реализации прокси-сервиса (API Gateway), с помощью которого можно будет постепенно переключать траффик, используя фиче-флаг.
 
+Реализация находится в `src/microservices/proxy`.
 
-Реализуйте сервис на любом языке программирования в ./src/microservices/proxy.
-Конфигурация для запуска сервиса через docker-compose уже добавлена
-```yaml
-  proxy-service:
-    build:
-      context: ./src/microservices/proxy
-      dockerfile: Dockerfile
-    container_name: cinemaabyss-proxy-service
-    depends_on:
-      - monolith
-      - movies-service
-      - events-service
-    ports:
-      - "8000:8000"
-    environment:
-      PORT: 8000
-      MONOLITH_URL: http://monolith:8080
-      #монолит
-      MOVIES_SERVICE_URL: http://movies-service:8081 #сервис movies
-      EVENTS_SERVICE_URL: http://events-service:8082 
-      GRADUAL_MIGRATION: "true" # вкл/выкл простого фиче-флага
-      MOVIES_MIGRATION_PERCENT: "50" # процент миграции
-    networks:
-      - cinemaabyss-network
+- `GET /health` обслуживается самим Gateway.
+- `/api/events/**` направляется в `events-service`.
+- `/api/movies/**` при `GRADUAL_MIGRATION=true` направляется в `movies-service` с вероятностью `MOVIES_MIGRATION_PERCENT`, иначе в монолит.
+- При `GRADUAL_MIGRATION=false` весь домен movies направляется в новый сервис.
+- Остальные маршруты направляются в монолит.
+- Ошибка upstream возвращается как `502`, не маскируется успешным ответом.
+
+Пример проверки:
+
+```bash
+docker compose up --build -d
+curl http://localhost:8000/health
+curl http://localhost:8000/api/movies
 ```
 
-- После реализации запустите postman тесты - они все должны быть зеленые (кроме events).
-- Отправьте запросы к API Gateway:
-   ```bash
-   curl http://localhost:8000/api/movies
-   ```
-- Протестируйте постепенный переход, изменив переменную окружения MOVIES_MIGRATION_PERCENT в файле docker-compose.yml.
+Для проверки постепенной миграции меняется `MOVIES_MIGRATION_PERCENT` в `docker-compose.yml` и перезапускается только Gateway:
+
+```bash
+docker compose up --build -d proxy-service
+```
 
 
 ### 2. Kafka
