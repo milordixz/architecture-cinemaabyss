@@ -1,0 +1,62 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title КиноБездна - To-Be container diagram
+
+Person(customer, "Пользователь", "Смотрит видео с телефона, ноутбука или ТВ")
+System_Ext(content, "Внешние источники контента", "Стриминговые сервисы")
+System_Ext(payment, "Платёжные системы", "Проведение платежей")
+System_Ext(recommendation, "Рекомендательная система", "Подборки фильмов")
+System_Ext(rabbitmq, "RabbitMQ", "Внешний AMQP-брокер рекомендательной системы")
+
+System_Boundary(cinema, "CinemaAbyss") {
+  Container(gateway, "API Gateway", "Java, Spring", "Единая точка входа, аутентификация, rate limit и routing")
+  Container(identity, "Identity / User Service", "Spring, REST", "Регистрация, аутентификация, профиль и пользовательские настройки")
+  Container(film, "Film Service", "Spring, REST", "Метаданные, добавление, поиск, получение и просмотр фильмов, выдача подборок пользователю")
+  Container(subscription, "Subscription Service", "Spring, REST", "Тарифы, подписки, доступ")
+  Container(favorites, "Favorites and Ratings Service", "Go, REST", "Избранное, пользовательские оценки и отзывы")
+  Container(billing, "Billing / Payment Service", "Go, REST", "Платежи, возвраты, статусы")
+  Container(recommendationAdapter, "Recommendation Adapter", "Go, REST/events", "Подготавливает данные и получает подборки от внешней рекомендательной системы")
+  Container(events, "Events Service", "Go, REST/Kafka", "MVP для приёма, публикации и обработки доменных событий")
+  ContainerQueue(kafka, "Kafka", "Event streaming", "Асинхронное взаимодействие, буферизация и повторная обработка событий")
+  ContainerDb(userDb, "User DB", "PostgreSQL", "Данные пользователей")
+  ContainerDb(filmDb, "Film DB", "PostgreSQL", "Фильмы, метаданные, сессии и прогресс просмотра")
+  ContainerDb(billingDb, "Billing DB", "PostgreSQL", "Платежи и их статусы")
+  ContainerDb(subscriptionDb, "Subscription DB", "PostgreSQL", "Подписки, тарифы и скидки")
+  ContainerDb(favoritesDb, "Favorites DB", "PostgreSQL", "Избранное, оценки и отзывы")
+}
+
+Rel(customer, gateway, "HTTPS/REST")
+Rel(gateway, identity, "REST")
+Rel(gateway, film, "REST")
+Rel(gateway, subscription, "REST")
+Rel(gateway, billing, "REST")
+Rel(gateway, favorites, "REST")
+Rel(gateway, recommendationAdapter, "REST")
+Rel(gateway, events, "REST, MVP API событий")
+
+Rel(identity, userDb, "SQL")
+Rel(film, filmDb, "SQL")
+Rel(billing, billingDb, "SQL")
+Rel(subscription, subscriptionDb, "SQL")
+Rel(favorites, favoritesDb, "SQL")
+
+Rel(identity, kafka, "События пользователей")
+Rel(film, kafka, "События фильмов и просмотров;\nполучает recommendation-events")
+Rel(billing, kafka, "События платежей")
+Rel(subscription, kafka, "События подписок")
+Rel(favorites, kafka, "События оценок и избранного")
+Rel(events, kafka, "публикует/получает")
+
+
+Rel(film, content, "Получение и просмотр контента\nHTTPS/API")
+Rel(recommendationAdapter, rabbitmq, "Запросы и подборки\nAMQP")
+Rel(rabbitmq, recommendation, "Задания и результаты\nAMQP")
+Rel(billing, payment, "Запрос платежа — HTTPS/API;\nстатус платежа — webhook/callback")
+
+
+' Адаптер получает подборки через RabbitMQ и публикует внутренние события в Kafka.
+Rel(recommendationAdapter, kafka, "События поведения пользователей\nи recommendation-events")
+
+SHOW_LEGEND()
+@enduml

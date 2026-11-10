@@ -1,0 +1,48 @@
+ENV['VAGRANT_SERVER_URL'] = 'http://vagrant.elab.pro'
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/ubuntu-24.04"
+
+  cluster_token = "token-change-me"
+  first_node_ip = "192.168.56.11"
+
+  nodes = {
+    "k3s-1" => "192.168.56.11",
+    "k3s-2" => "192.168.56.12",
+    "k3s-3" => "192.168.56.13"
+  }
+
+  nodes.each do |name, ip|
+    config.vm.define name do |node|
+      node.vm.hostname = name
+      node.vm.network "private_network", ip: ip
+
+      node.vm.provider "virtualbox" do |vb|
+        vb.name = "poc-#{name}"
+        vb.gui = false
+        vb.cpus = 2
+        vb.memory = 2048
+      end
+
+      join_args = name == "k3s-1" ? "--cluster-init" : "--server https://#{first_node_ip}:6443"
+
+      node.vm.provision "shell", inline: <<-SHELL
+        set -eu
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update -qq
+        apt-get install -y -qq curl ca-certificates
+
+        NODE_IP="#{ip}"
+        IFACE=$(ip -o -4 addr show | awk -v target="$NODE_IP" '{ split($4, parts, "/"); if (parts[1] == target) { print $2; exit } }')
+        if [ -z "$IFACE" ]; then
+          echo "Could not find private network interface for $NODE_IP" >&2
+          exit 1
+        fi
+
+        if [ ! -f /etc/systemd/system/k3s.service ]; then
+          curl -sfL https://get.k3s.io | K3S_TOKEN="#{cluster_token}" sh -s - server #{join_args} --node-ip "$NODE_IP" --flannel-iface "$IFACE" --tls-san #{first_node_ip} --disable traefik
+        fi
+      SHELL
+    end
+  end
+end
